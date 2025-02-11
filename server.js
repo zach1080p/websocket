@@ -1,68 +1,57 @@
-const http = require('http');
-const WebSocket = require('ws');
-const axios = require('axios');
+const WebSocket = require("ws");
+const express = require("express");
+const http = require("http");
+const fetch = require("node-fetch");
 
-const N8N_WEBHOOK_URL = "https://n8n-x2bc.onrender.com/webhook/websocketfromtwilio";
-const PORT = 8080;
+const PORT = process.env.PORT || 3000;
+const N8N_WEBHOOK_URL = "https://your-n8n-instance/webhook"; // Replace with your n8n webhook URL
 
-// Create HTTP server to handle upgrade requests (Fixes 426 error)
-const server = http.createServer((req, res) => {
-    res.writeHead(426, { 'Content-Type': 'text/plain' });
-    res.end('Upgrade to WebSocket required');
-});
-
+const app = express();
+const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// Buffer to store incoming audio chunks
-let audioBuffer = [];
-const MAX_BUFFER_SIZE = 2048; // Adjust based on performance
+let activeCalls = new Set();
 
-// Handle WebSocket Connections
-wss.on('connection', (ws) => {
-    console.log('Client connected');
+wss.on("connection", (ws) => {
+    console.log("WebSocket client connected");
 
-    ws.on('message', (data, isBinary) => {
-        if (isBinary) {
-            audioBuffer.push(data);
+    ws.on("message", (message) => {
+        try {
+            const event = JSON.parse(message);
 
-            // Send when buffer reaches limit
-            if (audioBuffer.length >= MAX_BUFFER_SIZE) {
-                sendAudioToN8n();
+            if (event.callActive) {
+                if (!activeCalls.has(event.callId)) {
+                    activeCalls.add(event.callId);
+                    console.log(`📞 Call started: ${event.callId}`);
+                    sendToN8n(event);
+                }
+            } else if (activeCalls.has(event.callId)) {
+                activeCalls.delete(event.callId);
+                console.log(`📴 Call ended: ${event.callId}`);
+            } else {
+                console.log("Ignoring message, no active call.");
             }
+        } catch (error) {
+            console.error("Error processing WebSocket message:", error);
         }
     });
 
-    ws.on('close', () => {
-        console.log('Client disconnected');
-        if (audioBuffer.length > 0) sendAudioToN8n();
-    });
+    ws.on("close", () => console.log("WebSocket client disconnected"));
 });
 
-// Function to send binary audio to n8n
-async function sendAudioToN8n() {
-    if (audioBuffer.length === 0) return;
-
-    let audioChunk = Buffer.concat(audioBuffer);
-    audioBuffer = []; // Clear buffer after sending
-
-    try {
-        await axios.post(N8N_WEBHOOK_URL, audioChunk, {
-            headers: { 
-                'Content-Type': 'application/octet-stream' // Send as raw binary
-            },
-            params: { fieldName: "data" } // Ensure this matches the n8n Webhook Node field
-        });
-
-        console.log(`Sent ${audioChunk.length} bytes to n8n`);
-    } catch (error) {
-        console.error("Error sending audio to n8n:", error.message);
-    }
+// Send data to n8n only when a call is active
+function sendToN8n(event) {
+    fetch(N8N_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(event),
+    })
+    .then((res) => console.log(`✅ Sent to n8n, response: ${res.status}`))
+    .catch((err) => console.error("❌ Error sending to n8n:", err));
 }
 
-// Start server
-server.listen(PORT, () => {
-    console.log(`WebSocket Server running on ws://localhost:${PORT}`);
-});
+// Start the server
+server.listen(PORT, () => console.log(`🚀 WebSocket server running on port ${PORT}`));
 
 
 
