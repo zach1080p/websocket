@@ -1,7 +1,7 @@
 {
   "name": "twilio-websocket-server",
   "version": "1.0.0",
-  "description": "WebSocket server for Twilio Media Streams",
+  "description": "WebSocket server for Twilio Media Streams with AI processing via n8n",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -16,6 +16,5 @@
     "node": ">=16.0.0"
   }
 }
-
 
 
