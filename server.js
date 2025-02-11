@@ -2,7 +2,7 @@ const http = require('http');
 const WebSocket = require('ws');
 const axios = require('axios');
 
-const N8N_WEBHOOK_URL = "https://n8n-x2bc.onrender.com/webhook/audio";
+const N8N_WEBHOOK_URL = "https://n8n-x2bc.onrender.com/webhook/websocketfromtwilio";
 const PORT = 8080;
 
 // Create HTTP server to handle upgrade requests (Fixes 426 error)
