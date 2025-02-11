@@ -38,7 +38,7 @@ wss.on("connection", (ws) => {
                     data,
                     {
                         headers: {
-                            Authorization: `Token ${DEEPGRAM_API_KEY}`,
+                            Authorization: `Token ${cd25f9b0f30ee5629a89d0164117b959598dc508}`,
                             "Content-Type": "audio/wav",
                         },
                         params: {
