@@ -2,14 +2,15 @@ const express = require("express");
 const http = require("http");
 const WebSocket = require("ws");
 const axios = require("axios");
+require("dotenv").config(); // Loads environment variables from .env
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const PORT = process.env.PORT || 8080;
-const N8N_WEBHOOK_URL = "https://n8n-x2bc.onrender.com/webhook-test/fc2f13fa-1659-4178-aca2-33218e065bec"; // Replace with your actual n8n webhook
-const DEEPGRAM_API_KEY = "cd25f9b0f30ee5629a89d0164117b959598dc508"; // Replace with your Deepgram API key
+const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL; // n8n Webhook URL
+const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY; // Deepgram API Key
 
 // Twilio XML Response to Connect Media Stream
 app.post("/twiml", (req, res) => {
@@ -17,7 +18,7 @@ app.post("/twiml", (req, res) => {
     res.send(`
         <Response>
             <Connect>
-                <Stream url="wss://websocket-h9yf.onrender.com" />
+                <Stream url="wss://your-websocket-url.onrender.com" />
             </Connect>
         </Response>
     `);
@@ -27,8 +28,8 @@ app.post("/twiml", (req, res) => {
 wss.on("connection", (ws) => {
     console.log("🔗 Twilio Media Stream Connected");
 
-    ws.on("message", async (data, isBinary) => {
-        if (isBinary) {
+    ws.on("message", async (data) => {
+        if (Buffer.isBuffer(data)) {  // Correctly checks if message is binary
             console.log("🎙️ Received PCM Audio from Twilio");
 
             try {
@@ -38,7 +39,7 @@ wss.on("connection", (ws) => {
                     data,
                     {
                         headers: {
-                            Authorization: `Token ${cd25f9b0f30ee5629a89d0164117b959598dc508}`,
+                            Authorization: `Token ${DEEPGRAM_API_KEY}`,
                             "Content-Type": "audio/wav",
                         },
                         params: {
@@ -74,7 +75,7 @@ wss.on("connection", (ws) => {
 
 // Keep WebSocket server alive
 setInterval(() => {
-    http.get("https://websocket-h9yf.onrender.com");
+    http.get("https://your-websocket-url.onrender.com");
     console.log("⏳ Keeping WebSocket server alive...");
 }, 300000); // Every 5 minutes
 
@@ -82,6 +83,7 @@ setInterval(() => {
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 WebSocket Server running on port ${PORT}`);
 });
+
 
 
 
