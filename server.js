@@ -1,73 +1,91 @@
-const express = require("express");
-const http = require("http");
-const WebSocket = require("ws");
-const axios = require("axios");
-require("dotenv").config(); // Load environment variables
+const WebSocket = require('ws');
+const axios = require('axios');
+const fs = require('fs');
+const { PassThrough } = require('stream');
 
-const app = express();
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ port: 8080 });
 
-const PORT = process.env.PORT || 8080;
-const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL; // Updated to handle transcription in n8n
+// Configuration: Reduce Sample Rate & Bit Depth
+const AUDIO_CONFIG = {
+    sampleRate: 16000, // Reduce from 44100Hz to 16kHz
+    bitDepth: 8, // Reduce bit depth from 16-bit to 8-bit
+    numChannels: 1, // Convert Stereo to Mono
+    batchSize: 512, // Reduce audio chunk size
+    throttleTime: 300, // Time between sending audio chunks (milliseconds)
+};
 
-// Twilio XML Response to Connect Media Stream
-app.post("/twiml", (req, res) => {
-    res.set("Content-Type", "text/xml");
-    res.send(`
-        <Response>
-            <Connect>
-                <Stream url="wss://websocket-h9yf.onrender.com" />
-            </Connect>
-        </Response>
-    `);
-});
+// Webhook URL for n8n
+const N8N_WEBHOOK_URL = "https://n8n-x2bc.onrender.com/webhook/audio";
 
-// WebSocket Connection (Twilio Media Streams)
-wss.on("connection", (ws) => {
-    console.log("🔗 Twilio Media Stream Connected");
+// Buffer to collect audio chunks
+let audioBuffer = [];
+let isProcessing = false;
 
-    ws.on("message", async (data) => {
-        if (Buffer.isBuffer(data)) {  // Ensure message is binary (PCM audio)
-            console.log("🎙️ Received PCM Audio from Twilio");
+// Function to downsample and process audio before sending to n8n
+function processAudioData(audioChunk) {
+    // Convert PCM audio to 8-bit mono, lower sample rate
+    let downsampledAudio = downsampleAudio(audioChunk);
+    audioBuffer.push(downsampledAudio);
 
-            try {
-                // Send raw PCM audio directly to n8n for transcription + AI processing
-                const n8nResponse = await axios.post(
-                    N8N_WEBHOOK_URL,
-                    data,
-                    {
-                        headers: { "Content-Type": "audio/wav" } // Ensure correct audio format
-                    }
-                );
+    // If not already processing, start sending data in batches
+    if (!isProcessing) {
+        isProcessing = true;
+        sendBatchedAudio();
+    }
+}
 
-                const generatedSpeech = n8nResponse.data.audio; // n8n returns synthesized audio from ElevenLabs
+// Function to send batched audio to n8n at controlled intervals
+async function sendBatchedAudio() {
+    while (audioBuffer.length > 0) {
+        let batch = audioBuffer.splice(0, AUDIO_CONFIG.batchSize);
 
-                // Send generated AI audio back to Twilio
-                ws.send(generatedSpeech, { binary: true });
-                console.log("📤 Sent AI-generated audio back to Twilio");
+        try {
+            await axios.post(N8N_WEBHOOK_URL, {
+                audioData: batch.toString('base64'), // Convert to base64 for efficient transport
+                format: "pcm",
+                sampleRate: AUDIO_CONFIG.sampleRate,
+                bitDepth: AUDIO_CONFIG.bitDepth,
+                numChannels: AUDIO_CONFIG.numChannels
+            });
 
-            } catch (error) {
-                console.error("❌ Error sending audio to n8n:", error.response ? error.response.data : error.message);
-            }
+            console.log(`Sent ${batch.length} bytes of audio to n8n`);
+        } catch (error) {
+            console.error("Error sending audio to n8n:", error.message);
         }
+
+        // Throttle to prevent overloading n8n
+        await new Promise(resolve => setTimeout(resolve, AUDIO_CONFIG.throttleTime));
+    }
+
+    isProcessing = false;
+}
+
+// Function to downsample audio (reduces RAM usage)
+function downsampleAudio(audioBuffer) {
+    let downsampledBuffer = Buffer.alloc(audioBuffer.length / 2);
+
+    for (let i = 0; i < downsampledBuffer.length; i++) {
+        downsampledBuffer[i] = audioBuffer[i * 2] >> 1; // Reduce bit depth
+    }
+
+    return downsampledBuffer;
+}
+
+// WebSocket connection event
+wss.on('connection', ws => {
+    console.log('Client connected');
+
+    ws.on('message', data => {
+        processAudioData(Buffer.from(data));
     });
 
-    ws.on("close", () => {
-        console.log("❌ Client Disconnected");
+    ws.on('close', () => {
+        console.log('Client disconnected');
     });
 });
 
-// Keep WebSocket server alive
-setInterval(() => {
-    http.get("https://websocket-h9yf.onrender.com");
-    console.log("⏳ Keeping WebSocket server alive...");
-}, 300000); // Every 5 minutes
+console.log("WebSocket server running on ws://localhost:8080");
 
-// Start Server
-server.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 WebSocket Server running on port ${PORT}`);
-});
 
 
 
