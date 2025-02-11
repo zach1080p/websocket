@@ -5,7 +5,7 @@ const axios = require('axios');
 const N8N_WEBHOOK_URL = "https://n8n-x2bc.onrender.com/webhook/audio";
 const PORT = 8080;
 
-// Create HTTP server to handle upgrade requests
+// Create HTTP server to handle upgrade requests (Fixes 426 error)
 const server = http.createServer((req, res) => {
     res.writeHead(426, { 'Content-Type': 'text/plain' });
     res.end('Upgrade to WebSocket required');
@@ -47,7 +47,10 @@ async function sendAudioToN8n() {
 
     try {
         await axios.post(N8N_WEBHOOK_URL, audioChunk, {
-            headers: { 'Content-Type': 'application/octet-stream' }
+            headers: { 
+                'Content-Type': 'application/octet-stream' // Send as raw binary
+            },
+            params: { fieldName: "data" } // Ensure this matches the n8n Webhook Node field
         });
 
         console.log(`Sent ${audioChunk.length} bytes to n8n`);
@@ -60,6 +63,7 @@ async function sendAudioToN8n() {
 server.listen(PORT, () => {
     console.log(`WebSocket Server running on ws://localhost:${PORT}`);
 });
+
 
 
 
