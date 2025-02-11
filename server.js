@@ -8,8 +8,8 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const PORT = process.env.PORT || 8080;
-const N8N_WEBHOOK_URL = "https://your-n8n-instance.com/webhook/audio-stream"; // Replace with your actual n8n webhook
-const DEEPGRAM_API_KEY = "your-deepgram-api-key"; // Replace with your Deepgram API key
+const N8N_WEBHOOK_URL = "https://n8n-x2bc.onrender.com/webhook-test/fc2f13fa-1659-4178-aca2-33218e065bec"; // Replace with your actual n8n webhook
+const DEEPGRAM_API_KEY = "cd25f9b0f30ee5629a89d0164117b959598dc508"; // Replace with your Deepgram API key
 
 // Twilio XML Response to Connect Media Stream
 app.post("/twiml", (req, res) => {
@@ -17,7 +17,7 @@ app.post("/twiml", (req, res) => {
     res.send(`
         <Response>
             <Connect>
-                <Stream url="wss://your-websocket-url.onrender.com" />
+                <Stream url="wss://websocket-h9yf.onrender.com" />
             </Connect>
         </Response>
     `);
@@ -74,7 +74,7 @@ wss.on("connection", (ws) => {
 
 // Keep WebSocket server alive
 setInterval(() => {
-    http.get("https://your-websocket-url.onrender.com");
+    http.get("https://websocket-h9yf.onrender.com");
     console.log("⏳ Keeping WebSocket server alive...");
 }, 300000); // Every 5 minutes
 
