@@ -17,7 +17,7 @@ app.post("/twiml", (req, res) => {
     res.send(`
         <Response>
             <Connect>
-                <Stream url="wss://your-websocket-url.onrender.com" />
+                <Stream url="wss://websocket-h9yf.onrender.com" />
             </Connect>
         </Response>
     `);
@@ -74,7 +74,7 @@ wss.on("connection", (ws) => {
 
 // Keep WebSocket server alive
 setInterval(() => {
-    http.get("https://your-websocket-url.onrender.com");
+    http.get("https://websocket-h9yf.onrender.com");
     console.log("⏳ Keeping WebSocket server alive...");
 }, 300000); // Every 5 minutes
 
