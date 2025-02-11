@@ -9,8 +9,7 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const PORT = process.env.PORT || 8080;
-const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
-const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY;
+const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL; // Updated to handle transcription in n8n
 
 // Twilio XML Response to Connect Media Stream
 app.post("/twiml", (req, res) => {
@@ -29,44 +28,27 @@ wss.on("connection", (ws) => {
     console.log("🔗 Twilio Media Stream Connected");
 
     ws.on("message", async (data) => {
-        if (Buffer.isBuffer(data)) {  // Check if message is binary
+        if (Buffer.isBuffer(data)) {  // Ensure message is binary (PCM audio)
             console.log("🎙️ Received PCM Audio from Twilio");
-            console.log("🔍 First bytes of audio:", data.slice(0, 10)); // Debugging first bytes
 
             try {
-                // Send Twilio PCM audio to Deepgram for real-time transcription
-                const transcriptionResponse = await axios.post(
-                    "https://api.deepgram.com/v1/listen",
+                // Send raw PCM audio directly to n8n for transcription + AI processing
+                const n8nResponse = await axios.post(
+                    N8N_WEBHOOK_URL,
                     data,
                     {
-                        headers: {
-                            Authorization: `Token ${DEEPGRAM_API_KEY}`,
-                            "Content-Type": "audio/wav",
-                        },
-                        params: {
-                            model: "phonecall",
-                            language: "en-US",
-                            punctuate: true,
-                            interim_results: false,
-                            encoding: "linear16",  // Ensuring the correct encoding
-                            sample_rate: 8000      // Matching Twilio's PCM format
-                        },
+                        headers: { "Content-Type": "audio/wav" } // Ensure correct audio format
                     }
                 );
 
-                const transcribedText = transcriptionResponse.data.results.channels[0].alternatives[0].transcript;
-                console.log("📝 Transcribed Text:", transcribedText);
-
-                // Send transcribed text to n8n for AI processing
-                const n8nResponse = await axios.post(N8N_WEBHOOK_URL, { text: transcribedText });
                 const generatedSpeech = n8nResponse.data.audio; // n8n returns synthesized audio from ElevenLabs
 
-                // Send generated audio back to Twilio
+                // Send generated AI audio back to Twilio
                 ws.send(generatedSpeech, { binary: true });
                 console.log("📤 Sent AI-generated audio back to Twilio");
 
             } catch (error) {
-                console.error("❌ Deepgram API Error:", error.response ? error.response.data : error.message);
+                console.error("❌ Error sending audio to n8n:", error.response ? error.response.data : error.message);
             }
         }
     });
@@ -86,7 +68,6 @@ setInterval(() => {
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 WebSocket Server running on port ${PORT}`);
 });
-
 
 
 
