@@ -9,7 +9,7 @@ const wss = new WebSocket.Server({ server });
 
 const PORT = process.env.PORT || 8080;
 const N8N_WEBHOOK_URL = "https://your-n8n-instance.com/webhook/audio-stream"; // Replace with your actual n8n webhook
-const DEEPGRAM_API_KEY = "your-deepgram-api-key"; // Replace with your Deepgram API key
+const DEEPGRAM_API_KEY = "cd25f9b0f30ee5629a89d0164117b959598dc508"; // Replace with your Deepgram API key
 
 // Twilio XML Response to Connect Media Stream
 app.post("/twiml", (req, res) => {
@@ -38,7 +38,7 @@ wss.on("connection", (ws) => {
                     data,
                     {
                         headers: {
-                            Authorization: `Token ${DEEPGRAM_API_KEY}`,
+                            Authorization: `Token ${cd25f9b0f30ee5629a89d0164117b959598dc508}`,
                             "Content-Type": "audio/wav",
                         },
                         params: {
