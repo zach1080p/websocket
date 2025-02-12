@@ -5,10 +5,10 @@ const ffmpeg = require("fluent-ffmpeg");
 const fetch = require("node-fetch");
 
 const PORT = process.env.PORT || 3000;
-const N8N_WEBHOOK_URL = "https://your-n8n-instance/webhook/twilio-audio"; // Replace with your actual n8n webhook URL
+const N8N_WEBHOOK_URL = "https://your-n8n-instance/webhook/twilio-audio"; // Replace with actual n8n webhook
 
 const app = express();
-app.use(express.raw({ type: "audio/x-mulaw", limit: "5mb" })); // Handle Twilio's raw audio
+app.use(express.raw({ type: "audio/x-mulaw", limit: "5mb" })); // Ensure raw body processing
 
 // 📡 Receive Twilio audio via HTTP POST
 app.post("/audio", async (req, res) => {
@@ -18,8 +18,11 @@ app.post("/audio", async (req, res) => {
     const mp3FilePath = "/tmp/twilio_audio.mp3";
 
     try {
-        // Save the raw μ-law audio
-        fs.writeFileSync(rawFilePath, req.body);
+        // ✅ Convert Twilio's audio to a Buffer before saving
+        const audioBuffer = Buffer.from(req.body);
+
+        // Save raw Twilio audio (μ-law format)
+        fs.writeFileSync(rawFilePath, audioBuffer);
         console.log("✅ Raw audio saved");
 
         // Convert μ-law (8000Hz) to optimized MP3 (32kbps)
@@ -37,7 +40,7 @@ app.post("/audio", async (req, res) => {
 
         console.log("🎧 Converted audio to optimized MP3");
 
-        // Send the MP3 file to n8n
+        // Send MP3 to n8n
         await sendToN8n(mp3FilePath);
 
         // Respond to Twilio (acknowledge receipt)
@@ -55,9 +58,7 @@ async function sendToN8n(filePath) {
 
         const response = await fetch(N8N_WEBHOOK_URL, {
             method: "POST",
-            headers: {
-                "Content-Type": "audio/mpeg",
-            },
+            headers: { "Content-Type": "audio/mpeg" },
             body: fileBuffer,
         });
 
